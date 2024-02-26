@@ -1,0 +1,87 @@
+pipeline {
+    agent any
+    environment {
+        DATA_COLLECTOR_IP = credentials('data_collector_ip')
+        IMAGE_NAME='kunalmehta14/blob-api'
+        IMAGE_VERSION='1'
+        GITHUB_TOKEN = credentials('github_token')
+    }
+    stages {
+        stage('Clone the repo') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    echo 'clone the repo'
+                    sh 'rm -fr Blob-API'
+                    sh 'git clone https://github.com/kunalmehta14/Blob-API.git'
+                }
+            }
+        }
+        stage('Deploy it to database server') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sshagent(['data_collector_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "git init /opt/blobapiappdir"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "git config --global --add safe.directory /opt/blobapiappdir"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "git -C /opt/blobapiappdir pull https://github.com/kunalmehta14/Blob-API.git"'
+                    }
+                }
+            }
+        }
+        stage('build image') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sshagent(['data_collector_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker build -t $IMAGE_NAME:$IMAGE_VERSION /opt/blobapiappdir/nodeapp"'
+                    }
+                }
+            }
+        }
+        stage('login to GHCR') {
+            steps {
+                sshagent(['data_collector_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "echo $GITHUB_TOKEN_PSW | docker login ghcr.io -u $GITHUB_TOKEN_USR --password-stdin"'
+                }
+            }
+        }
+        stage('tag image') {
+            steps {
+                sshagent(['data_collector_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker tag $IMAGE_NAME:$IMAGE_VERSION ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
+                }
+            }
+        }
+        stage('push image') {
+            steps {
+                sshagent(['data_collector_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker push ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
+                }
+            }
+        }
+        stage('stop and remove docker service') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sshagent(['data_collector_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker stop blob-api"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker rm blob-api"'
+                    }
+                }
+            }
+        }
+        stage('start docker service') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sshagent(['data_collector_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker compose -f /opt/blobapiappdir/docker-compose.yaml up -d --no-deps --build --always-recreate-deps"'
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            sshagent(['data_collector_ssh']) {
+                sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker logout"'
+            }
+        }
+    }
+}

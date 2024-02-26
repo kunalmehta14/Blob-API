@@ -1,0 +1,11 @@
+.env
+# Node modules
+node_modules
+# Images folder for testing
+images
+# Ignore Log Files
+*.log
+# Ignore Drawio Files
+*.drawio
+*.bkp
+*.dtmp

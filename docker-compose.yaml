@@ -1,0 +1,27 @@
+version: '3.3'
+
+#Define new container network
+
+networks:
+  containerNetwork:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.40.70.0/24
+
+services:
+#Node App consist of Javascript related items
+  blob-api:
+    restart: always
+    container_name: blob-api
+    image: ghcr.io/kunalmehta14/blob-api:1
+    ports:
+      - "8050:80"
+    volumes:
+      - ./nodeapp/app:/opt/app/
+      - /opt/realestate-data-pipeline/images:/opt/app/build/images
+    networks:
+      containerNetwork:
+        ipv4_address: 10.40.70.2
+    privileged: true
