@@ -28,7 +28,6 @@ RUN ln -sf /proc/1/fd/1 /var/log/blobapi/info.log
 RUN ln -sf /proc/1/fd/1 /var/log/blobapi/error.log
 EXPOSE 80
 WORKDIR /opt/app/src
-RUN npm install -D typescript
 #Copy supervisoryd.conf configuration that defines the startup services
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 #start startup services when the server starts
