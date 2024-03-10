@@ -20,7 +20,7 @@ services:
       - "8050:80"
     volumes:
       - ./nodeapp/app:/opt/app/
-      - /opt/realestate-data-pipeline/images:/opt/app/build/images
+      - /opt/db-images:/opt/app/build/images
     networks:
       containerNetwork:
         ipv4_address: 10.40.70.2

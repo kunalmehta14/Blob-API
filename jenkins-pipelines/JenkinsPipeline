@@ -1,7 +1,8 @@
 pipeline {
     agent any
     environment {
-        DATA_COLLECTOR_IP = credentials('data_collector_ip')
+        PRIMARY_DB_IP = credentials('primary_db_ip')
+        SECONDARY_DB_IP = credentials('secondary_db_ip')
         IMAGE_NAME='kunalmehta14/blob-api'
         IMAGE_VERSION='1'
         GITHUB_TOKEN = credentials('github_token')
@@ -19,10 +20,15 @@ pipeline {
         stage('Deploy it to database server') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sshagent(['data_collector_ssh']) {
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "git init /opt/blobapiappdir"'
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "git config --global --add safe.directory /opt/blobapiappdir"'
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "git -C /opt/blobapiappdir pull https://github.com/kunalmehta14/Blob-API.git"'
+                    sshagent(['primary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "git init /opt/blobapiappdir"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "git config --global --add safe.directory /opt/blobapiappdir"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "git -C /opt/blobapiappdir pull https://github.com/kunalmehta14/Blob-API.git"'
+                    }
+                    sshagent(['secondary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "git init /opt/blobapiappdir"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "git config --global --add safe.directory /opt/blobapiappdir"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "git -C /opt/blobapiappdir pull https://github.com/kunalmehta14/Blob-API.git"'
                     }
                 }
             }
@@ -30,39 +36,55 @@ pipeline {
         stage('build image') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sshagent(['data_collector_ssh']) {
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker build -t $IMAGE_NAME:$IMAGE_VERSION /opt/blobapiappdir/nodeapp"'
+                    sshagent(['primary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker build -t $IMAGE_NAME:$IMAGE_VERSION /opt/blobapiappdir/nodeapp"'
+                    }
+                    sshagent(['secondary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker build -t $IMAGE_NAME:$IMAGE_VERSION /opt/blobapiappdir/nodeapp"'
                     }
                 }
             }
         }
         stage('login to GHCR') {
             steps {
-                sshagent(['data_collector_ssh']) {
-                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "echo $GITHUB_TOKEN_PSW | docker login ghcr.io -u $GITHUB_TOKEN_USR --password-stdin"'
+                sshagent(['primary_db_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "echo $GITHUB_TOKEN_PSW | docker login ghcr.io -u $GITHUB_TOKEN_USR --password-stdin"'
+                }
+                sshagent(['secondary_db_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "echo $GITHUB_TOKEN_PSW | docker login ghcr.io -u $GITHUB_TOKEN_USR --password-stdin"'
                 }
             }
         }
         stage('tag image') {
             steps {
-                sshagent(['data_collector_ssh']) {
-                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker tag $IMAGE_NAME:$IMAGE_VERSION ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
+                sshagent(['primary_db_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker tag $IMAGE_NAME:$IMAGE_VERSION ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
+                }
+                sshagent(['secondary_db_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker tag $IMAGE_NAME:$IMAGE_VERSION ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
                 }
             }
         }
         stage('push image') {
             steps {
-                sshagent(['data_collector_ssh']) {
-                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker push ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
+                sshagent(['primary_db_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker push ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
+                }
+                sshagent(['secondary_db_ssh']) {
+                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker push ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
                 }
             }
         }
         stage('stop and remove docker service') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sshagent(['data_collector_ssh']) {
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker stop blob-api"'
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker rm blob-api"'
+                    sshagent(['primary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker stop blob-api"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker rm blob-api"'
+                    }
+                    sshagent(['secondary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker stop blob-api"'
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker rm blob-api"'
                     }
                 }
             }
@@ -70,8 +92,11 @@ pipeline {
         stage('start docker service') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sshagent(['data_collector_ssh']) {
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker compose -f /opt/blobapiappdir/docker-compose.yaml up -d --no-deps --build --always-recreate-deps"'
+                    sshagent(['primary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker compose -f /opt/blobapiappdir/docker-compose.yaml up -d --no-deps --build --always-recreate-deps"'
+                    }
+                    sshagent(['secondary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker compose -f /opt/blobapiappdir/docker-compose.yaml up -d --no-deps --build --always-recreate-deps"'
                     }
                 }
             }
@@ -79,8 +104,11 @@ pipeline {
     }
     post {
         always {
-            sshagent(['data_collector_ssh']) {
-                sh 'ssh -o StrictHostKeyChecking=no -l jenkins $DATA_COLLECTOR_IP "docker logout"'
+            sshagent(['primary_db_ssh']) {
+                sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker logout"'
+            }
+            sshagent(['secondary_db_ssh']) {
+                sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker logout"'
             }
         }
     }

@@ -15,47 +15,46 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: path.join(logPath, 'info.log')}),
   ],
 });
+
 // Server Settings
 const app: Application = express();
 const port: number = 80;
 const httpserver = http.createServer(app)
-// Return Image File
-app.get('/blobapi/images/:directory/:filename', (req: Request, res: Response) => {
+
+// Return Requested Information
+app.get('/blobapi/:filePath(*)', (req: Request, res: Response) => {
   try{
-    const { filename } = req.params;
-    const { directory } = req.params;
-    const imageDir = '/opt/app/build/images'
-    const imagePath = path.join(imageDir, directory, filename);
-    // Return Image
-    if (fs.existsSync(imagePath)) {
-      const stream = fs.createReadStream(imagePath);
+    const reqFilePath = req.params.filePath;
+    const fileDir = '/opt/app/build/images'
+    const filePath = path.join(__dirname, fileDir, reqFilePath);
+    logger.info(__dirname);
+    // Return File
+    if (fs.existsSync(filePath) && fs.lstatSync(filePath).isDirectory()) {
+      fs.readdir(filePath, (err, files) => {
+        if (err) {
+          return res.status(404).json({ error: 'Path not found' });
+        }
+        // Return the list of files and directories in JSON format
+        const fileList: { name: string, type: string }[] = [];
+        files.forEach(file => {
+          const processPath = path.join(filePath, file);
+          const fileType = fs.statSync(processPath).isDirectory() ? 'directory' : 'file';
+          fileList.push({ name: file, type: fileType });
+        });
+        res.json(fileList);
+      }) 
+    } else if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
+      const stream = fs.createReadStream(filePath);
       stream.pipe(res);
     } else {
-      res.status(404).json({ error: 'Image not found' });
-      logger.error(`Image Path Request: ${imagePath}`);
+      res.status(404).json({ error: 'File not found' });
+      logger.error(`File Path Request: ${filePath}`);
     };
   } catch(e) {
     logger.error(e);
   };
 });
-// Return List of Images
-app.get('/blobapi/images/:directory', (req: Request, res: Response) => {
-  try{
-    const { directory } = req.params;
-    const imageDir = '/opt/app/build/images';
-    const directoryPath = path.join(imageDir, directory);
-    // const files: string[] = [];
-    fs.readdir(directoryPath, (err, files) => {
-      if (err) {
-        return res.status(404).json({ error: 'ID not found or no images available for the ID' });
-      }
-      // Return the list of files in JSON format
-      res.json({ directory, files });
-  });
-  } catch(e) {
-    logger.error(e);
-  };
-});
+
 // Return Connection Info
 app.use((req, res) => {
   try {
@@ -67,5 +66,6 @@ app.use((req, res) => {
     logger.error(e);
   };
 });
+
 // Initiate server
 httpserver.listen(port, () => logger.info(`Listing on port ${port}`));

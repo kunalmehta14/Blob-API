@@ -23,43 +23,38 @@ const logger = winston.createLogger({
 const app = (0, express_1.default)();
 const port = 80;
 const httpserver = http_1.default.createServer(app);
-// Return Image File
-app.get('/blobapi/images/:directory/:filename', (req, res) => {
+// Return Requested Information
+app.get('/blobapi/:filePath(*)', (req, res) => {
     try {
-        const { filename } = req.params;
-        const { directory } = req.params;
-        const imageDir = '/opt/app/build/images';
-        const imagePath = path_1.default.join(imageDir, directory, filename);
-        // Return Image
-        if (fs_1.default.existsSync(imagePath)) {
-            const stream = fs_1.default.createReadStream(imagePath);
+        const reqFilePath = req.params.filePath;
+        const fileDir = '/opt/app/build/images';
+        const filePath = path_1.default.join(__dirname, fileDir, reqFilePath);
+        logger.info(__dirname);
+        // Return File
+        if (fs_1.default.existsSync(filePath) && fs_1.default.lstatSync(filePath).isDirectory()) {
+            fs_1.default.readdir(filePath, (err, files) => {
+                if (err) {
+                    return res.status(404).json({ error: 'Path not found' });
+                }
+                // Return the list of files and directories in JSON format
+                const fileList = [];
+                files.forEach(file => {
+                    const processPath = path_1.default.join(filePath, file);
+                    const fileType = fs_1.default.statSync(processPath).isDirectory() ? 'directory' : 'file';
+                    fileList.push({ name: file, type: fileType });
+                });
+                res.json(fileList);
+            });
+        }
+        else if (fs_1.default.existsSync(filePath) && fs_1.default.lstatSync(filePath).isFile()) {
+            const stream = fs_1.default.createReadStream(filePath);
             stream.pipe(res);
         }
         else {
-            res.status(404).json({ error: 'Image not found' });
-            logger.error(`Image Path Request: ${imagePath}`);
+            res.status(404).json({ error: 'File not found' });
+            logger.error(`File Path Request: ${filePath}`);
         }
         ;
-    }
-    catch (e) {
-        logger.error(e);
-    }
-    ;
-});
-// Return List of Images
-app.get('/blobapi/images/:directory', (req, res) => {
-    try {
-        const { directory } = req.params;
-        const imageDir = '/opt/app/build/images';
-        const directoryPath = path_1.default.join(imageDir, directory);
-        // const files: string[] = [];
-        fs_1.default.readdir(directoryPath, (err, files) => {
-            if (err) {
-                return res.status(404).json({ error: 'ID not found or no images available for the ID' });
-            }
-            // Return the list of files in JSON format
-            res.json({ directory, files });
-        });
     }
     catch (e) {
         logger.error(e);
