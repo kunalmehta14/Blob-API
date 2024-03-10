@@ -39,9 +39,6 @@ pipeline {
                     sshagent(['primary_db_ssh']) {
                         sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker build -t $IMAGE_NAME:$IMAGE_VERSION /opt/blobapiappdir/nodeapp"'
                     }
-                    sshagent(['secondary_db_ssh']) {
-                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker build -t $IMAGE_NAME:$IMAGE_VERSION /opt/blobapiappdir/nodeapp"'
-                    }
                 }
             }
         }
@@ -60,18 +57,12 @@ pipeline {
                 sshagent(['primary_db_ssh']) {
                     sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker tag $IMAGE_NAME:$IMAGE_VERSION ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
                 }
-                sshagent(['secondary_db_ssh']) {
-                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker tag $IMAGE_NAME:$IMAGE_VERSION ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
-                }
             }
         }
         stage('push image') {
             steps {
                 sshagent(['primary_db_ssh']) {
                     sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker push ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
-                }
-                sshagent(['secondary_db_ssh']) {
-                    sh 'ssh -o StrictHostKeyChecking=no -l jenkins $SECONDARY_DB_IP "docker push ghcr.io/$IMAGE_NAME:$IMAGE_VERSION"'
                 }
             }
         }
