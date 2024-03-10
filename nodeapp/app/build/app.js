@@ -28,8 +28,7 @@ app.get('/blobapi/:filePath(*)', (req, res) => {
     try {
         const reqFilePath = req.params.filePath;
         const fileDir = '/opt/app/build/images';
-        const filePath = path_1.default.join(__dirname, fileDir, reqFilePath);
-        logger.info(__dirname);
+        const filePath = path_1.default.join(fileDir, reqFilePath);
         // Return File
         if (fs_1.default.existsSync(filePath) && fs_1.default.lstatSync(filePath).isDirectory()) {
             fs_1.default.readdir(filePath, (err, files) => {

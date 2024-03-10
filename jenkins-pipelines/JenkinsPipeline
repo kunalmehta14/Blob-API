@@ -33,6 +33,15 @@ pipeline {
                 }
             }
         }
+        stage('remove existing image') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sshagent(['primary_db_ssh']) {
+                        sh 'ssh -o StrictHostKeyChecking=no -l jenkins $PRIMARY_DB_IP "docker rmi $IMAGE_NAME"'
+                    }
+                }
+            }
+        }
         stage('build image') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
