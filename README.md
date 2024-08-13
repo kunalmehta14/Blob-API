@@ -54,7 +54,7 @@ The Blob API service can be implemented using redundant backend services, suppor
 
 ### Jenkins CI/CD Pipeline
 
-The repository includes a [JenkinsPipeline](jenkins-pipelines\JenkinsPipeline) that defines the CI/CD pipeline:
+The repository includes a [JenkinsPipeline](jenkins-pipelines/JenkinsPipeline) that defines the CI/CD pipeline:
 <ol>
 <li> SCM checkout is triggered when the code is pushed to the master branch.
 <li> Jenkins instance clones the repository content.
@@ -63,4 +63,4 @@ The repository includes a [JenkinsPipeline](jenkins-pipelines\JenkinsPipeline) t
 <li> The updated image is deployed as a container instance on production servers.
 </ol>
 
-![Architecture](jenkins-pipelines\jenkin_pipeline_architecture.jpg)
+![Architecture](jenkins-pipelines/jenkin_pipeline_architecture.jpg)
