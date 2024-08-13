@@ -44,15 +44,23 @@ Docker management related documentation can be found here: ['Docker Management']
 + /images/:id/:filename: GET - Retrieves a specific image by filename.
 
 ### BLOB STORAGE API ARCHITECTURE
-![Architecture](BlobStorage-API-Architecture.svg)
+
+#### SINGLE BACKEND ARCHITECTURE
+![Architecture](BlobStorage-API-Architecture.drawio.png)
+
+#### BLOB API REDUDANT ARCHITECTURE
+The Blob API service can be implemented using redundant backend services, supported by a load balancer for optimal performance. For instance, in a production environment, I have employed the following architecture:
+![Architecture](BlobStorage-API-Architecture-loadbalancer.drawio.png)
 
 ### Jenkins CI/CD Pipeline
 
-The repository includes a Jenkinsfile that defines the CI/CD pipeline:
+The repository includes a [JenkinsPipeline](jenkins-pipelines\JenkinsPipeline) that defines the CI/CD pipeline:
 <ol>
 <li> SCM checkout is triggered when the code is pushed to the master branch.
 <li> Jenkins instance clones the repository content.
 <li> It creates a Docker image.
-<li> The Docker image is uploaded to Docker Hub.
+<li> The Docker image is uploaded to GHCR.
 <li> The updated image is deployed as a container instance on production servers.
 </ol>
+
+![Architecture](jenkins-pipelines\jenkin_pipeline_architecture.jpg)
